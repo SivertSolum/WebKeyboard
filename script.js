@@ -159,6 +159,8 @@ class KeyboardManager {
         this.keyMapping = this.createKeyMapping();
         this.activeKeys = new Set();
         this.activeMouseKeys = new Map(); // Track mouse/touch pressed keys
+        this.isMouseDown = false; // Track if mouse button is held down
+        this.currentMouseKey = null; // Track current key during mouse drag
         
         this.initKeyboard();
         this.initEventListeners();
@@ -307,10 +309,14 @@ class KeyboardManager {
 
     // Initialize event listeners
     initEventListeners() {
+        const keyboard = document.getElementById('keyboard');
+        
         // Mouse events
-        document.getElementById('keyboard').addEventListener('mousedown', (e) => {
+        keyboard.addEventListener('mousedown', (e) => {
+            this.isMouseDown = true;
             const key = e.target.closest('.key');
             if (key) {
+                this.currentMouseKey = key;
                 const octave = parseInt(key.dataset.octave); // Already the actual octave number
                 const noteId = `${key.dataset.note}-${octave}`;
                 this.activeMouseKeys.set(key, noteId);
@@ -318,16 +324,98 @@ class KeyboardManager {
             }
         });
 
-        document.addEventListener('mouseup', () => {
-            this.handleMouseKeyRelease();
+        // Mouse move for sweeping between keys
+        keyboard.addEventListener('mousemove', (e) => {
+            if (this.isMouseDown) {
+                const key = e.target.closest('.key');
+                if (key && key !== this.currentMouseKey) {
+                    // Mouse moved to a different key
+                    // Stop previous key if it exists
+                    if (this.currentMouseKey) {
+                        const prevNoteId = this.activeMouseKeys.get(this.currentMouseKey);
+                        if (prevNoteId) {
+                            const [note, octave] = prevNoteId.split('-');
+                            this.activeKeys.delete(prevNoteId);
+                            this.audioEngine.stopNote(note, parseInt(octave));
+                            this.currentMouseKey.classList.remove('active');
+                            this.activeMouseKeys.delete(this.currentMouseKey);
+                        }
+                    }
+                    
+                    // Start new key
+                    this.currentMouseKey = key;
+                    const octave = parseInt(key.dataset.octave);
+                    const noteId = `${key.dataset.note}-${octave}`;
+                    this.activeMouseKeys.set(key, noteId);
+                    this.handleKeyPress(key.dataset.note, key.dataset.isBlack === 'true', null, octave, key);
+                } else if (!key && this.currentMouseKey) {
+                    // Mouse moved off a key (but still in keyboard area)
+                    // Stop the current key
+                    const prevNoteId = this.activeMouseKeys.get(this.currentMouseKey);
+                    if (prevNoteId) {
+                        const [note, octave] = prevNoteId.split('-');
+                        this.activeKeys.delete(prevNoteId);
+                        this.audioEngine.stopNote(note, parseInt(octave));
+                        this.currentMouseKey.classList.remove('active');
+                        this.activeMouseKeys.delete(this.currentMouseKey);
+                        this.currentMouseKey = null;
+                    }
+                }
+            }
         });
 
-        // Touch events
-        document.getElementById('keyboard').addEventListener('touchstart', (e) => {
+        // Mouse leave keyboard area - stop all notes
+        keyboard.addEventListener('mouseleave', (e) => {
+            if (this.isMouseDown) {
+                this.handleMouseKeyRelease();
+                this.isMouseDown = false;
+                this.currentMouseKey = null;
+            }
+        });
+
+        document.addEventListener('mouseup', () => {
+            if (this.isMouseDown) {
+                this.handleMouseKeyRelease();
+                this.isMouseDown = false;
+                this.currentMouseKey = null;
+            }
+        });
+
+        // Touch events with sweep support
+        keyboard.addEventListener('touchstart', (e) => {
             e.preventDefault();
-            const key = e.target.closest('.key');
+            const touch = e.touches[0];
+            const key = document.elementFromPoint(touch.clientX, touch.clientY)?.closest('.key');
             if (key) {
-                const octave = parseInt(key.dataset.octave); // Already the actual octave number
+                this.currentMouseKey = key;
+                const octave = parseInt(key.dataset.octave);
+                const noteId = `${key.dataset.note}-${octave}`;
+                this.activeMouseKeys.set(key, noteId);
+                this.handleKeyPress(key.dataset.note, key.dataset.isBlack === 'true', null, octave, key);
+            }
+        });
+
+        keyboard.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            const touch = e.touches[0];
+            const key = document.elementFromPoint(touch.clientX, touch.clientY)?.closest('.key');
+            if (key && key !== this.currentMouseKey) {
+                // Touch moved to a different key
+                // Stop previous key if it exists
+                if (this.currentMouseKey) {
+                    const prevNoteId = this.activeMouseKeys.get(this.currentMouseKey);
+                    if (prevNoteId) {
+                        const [note, octave] = prevNoteId.split('-');
+                        this.activeKeys.delete(prevNoteId);
+                        this.audioEngine.stopNote(note, parseInt(octave));
+                        this.currentMouseKey.classList.remove('active');
+                        this.activeMouseKeys.delete(this.currentMouseKey);
+                    }
+                }
+                
+                // Start new key
+                this.currentMouseKey = key;
+                const octave = parseInt(key.dataset.octave);
                 const noteId = `${key.dataset.note}-${octave}`;
                 this.activeMouseKeys.set(key, noteId);
                 this.handleKeyPress(key.dataset.note, key.dataset.isBlack === 'true', null, octave, key);
@@ -337,6 +425,13 @@ class KeyboardManager {
         document.addEventListener('touchend', (e) => {
             e.preventDefault();
             this.handleMouseKeyRelease();
+            this.currentMouseKey = null;
+        });
+
+        document.addEventListener('touchcancel', (e) => {
+            e.preventDefault();
+            this.handleMouseKeyRelease();
+            this.currentMouseKey = null;
         });
 
         // Computer keyboard events
