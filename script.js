@@ -6,7 +6,7 @@ class AudioEngine {
         this.activeNotes = new Map(); // Track active oscillators
         this.waveform = 'sine';
         this.volume = 0.5;
-        this.octave = 4;
+        this.octave = 2; // Base octave (will show octaves 2, 3, 4)
         this.attack = 0;
         this.release = 200;
         
@@ -251,22 +251,26 @@ class KeyboardManager {
         const numOctaves = 3;
         let globalWhiteKeyIndex = 0;
 
-        // Create 3 octaves
-        for (let octave = 0; octave < numOctaves; octave++) {
+        // Get base octave from audio engine
+        const baseOctave = this.audioEngine.octave;
+
+        // Create 3 octaves (baseOctave, baseOctave+1, baseOctave+2)
+        for (let octaveIndex = 0; octaveIndex < numOctaves; octaveIndex++) {
+            const actualOctave = baseOctave + octaveIndex;
             oneOctaveLayout.forEach((keyInfo) => {
                 const key = document.createElement('div');
                 key.className = `key ${keyInfo.isBlack ? 'black' : 'white'}`;
                 key.dataset.note = keyInfo.note;
                 key.dataset.isBlack = keyInfo.isBlack.toString();
-                key.dataset.octave = octave.toString();
+                key.dataset.octave = actualOctave.toString(); // Store actual octave number (0-6)
                 
-                // Add label with keyboard shortcut (only show for first occurrence or specific keys)
+                // Add label with keyboard shortcut
                 const label = document.createElement('div');
                 label.className = 'key-label';
                 
-                // Find key mapping for this note and octave
-                // octave 0 (first displayed) = -1 offset, octave 1 (middle) = 0 offset, octave 2 (third) = 1 offset
-                const noteOctave = octave - 1;
+                // Find key mapping for this note and octave position
+                // octaveIndex 0 (first displayed) = -1 offset, 1 (middle) = 0 offset, 2 (third) = 1 offset
+                const noteOctave = octaveIndex - 1;
                 const keyChar = Object.keys(this.keyMapping).find(
                     k => {
                         const mapping = this.keyMapping[k];
@@ -276,12 +280,9 @@ class KeyboardManager {
                     }
                 );
                 
-                // Show key label if found, otherwise show octave indicator for first occurrence
+                // Show key label if found
                 if (keyChar) {
                     label.textContent = keyChar.toUpperCase();
-                } else if (!keyInfo.isBlack && (octave === 0 || (octave === 1 && keyInfo.note === 'C'))) {
-                    // Show octave indicator on first C of each octave for reference
-                    label.textContent = '';
                 } else {
                     label.textContent = '';
                 }
@@ -307,7 +308,7 @@ class KeyboardManager {
         document.getElementById('keyboard').addEventListener('mousedown', (e) => {
             const key = e.target.closest('.key');
             if (key) {
-                const octave = parseInt(key.dataset.octave) + this.audioEngine.octave - 1;
+                const octave = parseInt(key.dataset.octave); // Already the actual octave number
                 const noteId = `${key.dataset.note}-${octave}`;
                 this.activeMouseKeys.set(key, noteId);
                 this.handleKeyPress(key.dataset.note, key.dataset.isBlack === 'true', null, octave, key);
@@ -323,7 +324,7 @@ class KeyboardManager {
             e.preventDefault();
             const key = e.target.closest('.key');
             if (key) {
-                const octave = parseInt(key.dataset.octave) + this.audioEngine.octave - 1;
+                const octave = parseInt(key.dataset.octave); // Already the actual octave number
                 const noteId = `${key.dataset.note}-${octave}`;
                 this.activeMouseKeys.set(key, noteId);
                 this.handleKeyPress(key.dataset.note, key.dataset.isBlack === 'true', null, octave, key);
@@ -371,7 +372,8 @@ class KeyboardManager {
         if (keyElement) {
             keyElement.classList.add('active');
         } else {
-            const keys = document.querySelectorAll(`.key[data-note="${note}"][data-octave="${octave - this.audioEngine.octave + 1}"]`);
+            // Find keys matching note and octave
+            const keys = document.querySelectorAll(`.key[data-note="${note}"][data-octave="${octave}"]`);
             keys.forEach(key => {
                 if ((isBlack && key.classList.contains('black')) ||
                     (!isBlack && key.classList.contains('white'))) {
@@ -394,12 +396,10 @@ class KeyboardManager {
                     this.audioEngine.stopNote(mapping.note, octave);
                     
                     // Remove visual feedback
-                    const keys = document.querySelectorAll(`.key[data-note="${mapping.note}"]`);
+                    const keys = document.querySelectorAll(`.key[data-note="${mapping.note}"][data-octave="${octave}"]`);
                     keys.forEach(key => {
-                        const keyOctave = parseInt(key.dataset.octave) + this.audioEngine.octave - 1;
-                        if (keyOctave === octave && 
-                            ((mapping.isBlack && key.classList.contains('black')) ||
-                             (!mapping.isBlack && key.classList.contains('white')))) {
+                        if ((mapping.isBlack && key.classList.contains('black')) ||
+                            (!mapping.isBlack && key.classList.contains('white'))) {
                             key.classList.remove('active');
                         }
                     });
@@ -449,9 +449,13 @@ class ControlPanel {
         const octaveSlider = document.getElementById('octave');
         const octaveValue = document.getElementById('octave-value');
         octaveSlider.addEventListener('input', (e) => {
-            const octave = parseInt(e.target.value);
-            this.audioEngine.setOctave(octave);
-            octaveValue.textContent = octave;
+            const baseOctave = parseInt(e.target.value);
+            this.audioEngine.setOctave(baseOctave);
+            octaveValue.textContent = `${baseOctave}-${baseOctave + 2}`;
+            // Regenerate keyboard to show new octave range
+            if (window.keyboardManager) {
+                window.keyboardManager.initKeyboard();
+            }
         });
 
         // Attack slider
@@ -478,6 +482,7 @@ class ControlPanel {
 document.addEventListener('DOMContentLoaded', () => {
     const audioEngine = new AudioEngine();
     const keyboardManager = new KeyboardManager(audioEngine);
+    window.keyboardManager = keyboardManager; // Make accessible for octave changes
     const controlPanel = new ControlPanel(audioEngine);
 
     // Handle page visibility change (pause audio when tab is hidden)
