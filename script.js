@@ -6,7 +6,7 @@ class AudioEngine {
         this.activeNotes = new Map(); // Track active oscillators
         this.waveform = 'sine';
         this.volume = 0.5;
-        this.octave = 2; // Base octave (will show octaves 2, 3, 4)
+        this.octave = 2; // Base octave (will show 5 octaves: 2, 3, 4, 5, 6)
         this.attack = 0;
         this.release = 200;
         
@@ -164,11 +164,12 @@ class KeyboardManager {
         this.initEventListeners();
     }
 
-    // Create QWERTY to note mapping for 3 octaves
+    // Create QWERTY to note mapping for middle 3 octaves of 5 displayed
     createKeyMapping() {
-        // Octave 1 (lowest): Q-P and [ ] for white, 1-0 and - = for black
-        // Octave 2 (middle): A-; and ' for white, W-U and O-P-[ for black  
-        // Octave 3 (highest): Z-/ for white, S-J and L-;-' for black
+        // Maps to middle 3 octaves (offsets -1, 0, 1 from center)
+        // Lower octave: Q-P and [ ] for white, 1-0 and - = for black
+        // Middle octave: A-; and ' for white
+        // Upper octave: Z-/ for white
         return {
             // Octave 1 (lowest) - White keys: Q W E R T Y U I O P [ ]
             'q': { note: 'C', isBlack: false, octaveOffset: -1 },
@@ -248,7 +249,7 @@ class KeyboardManager {
 
         const whiteKeyWidth = 60;
         const blackKeyWidth = 40;
-        const numOctaves = 3;
+        const numOctaves = 5; // Show 5 octaves = 60 keys (36 white + 24 black)
         let globalWhiteKeyIndex = 0;
 
         // Get base octave from audio engine
@@ -269,8 +270,10 @@ class KeyboardManager {
                 label.className = 'key-label';
                 
                 // Find key mapping for this note and octave position
-                // octaveIndex 0 (first displayed) = -1 offset, 1 (middle) = 0 offset, 2 (third) = 1 offset
-                const noteOctave = octaveIndex - 1;
+                // octaveIndex 0-4 (5 octaves displayed)
+                // Middle 3 octaves have keyboard mappings: -1, 0, 1 offsets
+                // Outer octaves can be played via mouse/touch
+                const noteOctave = octaveIndex - 2; // Center on middle octave
                 const keyChar = Object.keys(this.keyMapping).find(
                     k => {
                         const mapping = this.keyMapping[k];
@@ -451,7 +454,7 @@ class ControlPanel {
         octaveSlider.addEventListener('input', (e) => {
             const baseOctave = parseInt(e.target.value);
             this.audioEngine.setOctave(baseOctave);
-            octaveValue.textContent = `${baseOctave}-${baseOctave + 2}`;
+            octaveValue.textContent = `${baseOctave}-${baseOctave + 4}`;
             // Regenerate keyboard to show new octave range
             if (window.keyboardManager) {
                 window.keyboardManager.initKeyboard();
