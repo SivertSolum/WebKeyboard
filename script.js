@@ -158,47 +158,80 @@ class KeyboardManager {
         this.audioEngine = audioEngine;
         this.keyMapping = this.createKeyMapping();
         this.activeKeys = new Set();
+        this.activeMouseKeys = new Map(); // Track mouse/touch pressed keys
         
         this.initKeyboard();
         this.initEventListeners();
     }
 
-    // Create QWERTY to note mapping
+    // Create QWERTY to note mapping for 3 octaves
     createKeyMapping() {
-        // White keys: A S D F G H J K L ; '
-        // Black keys: W E T Y U O P [
+        // Octave 1 (lowest): Q-P and [ ] for white, 1-0 and - = for black
+        // Octave 2 (middle): A-; and ' for white, W-U and O-P-[ for black  
+        // Octave 3 (highest): Z-/ for white, S-J and L-;-' for black
         return {
-            // White keys
-            'a': { note: 'C', isBlack: false },
-            's': { note: 'D', isBlack: false },
-            'd': { note: 'E', isBlack: false },
-            'f': { note: 'F', isBlack: false },
-            'g': { note: 'G', isBlack: false },
-            'h': { note: 'A', isBlack: false },
-            'j': { note: 'B', isBlack: false },
-            'k': { note: 'C', isBlack: false },
-            'l': { note: 'D', isBlack: false },
-            ';': { note: 'E', isBlack: false },
-            "'": { note: 'F', isBlack: false },
-            // Black keys
-            'w': { note: 'C#', isBlack: true },
-            'e': { note: 'D#', isBlack: true },
-            't': { note: 'F#', isBlack: true },
-            'y': { note: 'G#', isBlack: true },
-            'u': { note: 'A#', isBlack: true },
-            'o': { note: 'C#', isBlack: true },
-            'p': { note: 'D#', isBlack: true },
-            '[': { note: 'F#', isBlack: true }
+            // Octave 1 (lowest) - White keys: Q W E R T Y U I O P [ ]
+            'q': { note: 'C', isBlack: false, octaveOffset: -1 },
+            'w': { note: 'D', isBlack: false, octaveOffset: -1 },
+            'e': { note: 'E', isBlack: false, octaveOffset: -1 },
+            'r': { note: 'F', isBlack: false, octaveOffset: -1 },
+            't': { note: 'G', isBlack: false, octaveOffset: -1 },
+            'y': { note: 'A', isBlack: false, octaveOffset: -1 },
+            'u': { note: 'B', isBlack: false, octaveOffset: -1 },
+            'i': { note: 'C', isBlack: false, octaveOffset: 0 },
+            'o': { note: 'D', isBlack: false, octaveOffset: 0 },
+            'p': { note: 'E', isBlack: false, octaveOffset: 0 },
+            '[': { note: 'F', isBlack: false, octaveOffset: 0 },
+            ']': { note: 'G', isBlack: false, octaveOffset: 0 },
+            // Octave 1 - Black keys: 1 2 4 5 6 8 9 0 - =
+            '1': { note: 'C#', isBlack: true, octaveOffset: -1 },
+            '2': { note: 'D#', isBlack: true, octaveOffset: -1 },
+            '4': { note: 'F#', isBlack: true, octaveOffset: -1 },
+            '5': { note: 'G#', isBlack: true, octaveOffset: -1 },
+            '6': { note: 'A#', isBlack: true, octaveOffset: -1 },
+            '8': { note: 'C#', isBlack: true, octaveOffset: 0 },
+            '9': { note: 'D#', isBlack: true, octaveOffset: 0 },
+            '0': { note: 'F#', isBlack: true, octaveOffset: 0 },
+            '-': { note: 'G#', isBlack: true, octaveOffset: 0 },
+            '=': { note: 'A#', isBlack: true, octaveOffset: 0 },
+            // Octave 2 (middle) - White keys: A S D F G H J K L ; '
+            'a': { note: 'C', isBlack: false, octaveOffset: 0 },
+            's': { note: 'D', isBlack: false, octaveOffset: 0 },
+            'd': { note: 'E', isBlack: false, octaveOffset: 0 },
+            'f': { note: 'F', isBlack: false, octaveOffset: 0 },
+            'g': { note: 'G', isBlack: false, octaveOffset: 0 },
+            'h': { note: 'A', isBlack: false, octaveOffset: 0 },
+            'j': { note: 'B', isBlack: false, octaveOffset: 0 },
+            'k': { note: 'C', isBlack: false, octaveOffset: 1 },
+            'l': { note: 'D', isBlack: false, octaveOffset: 1 },
+            ';': { note: 'E', isBlack: false, octaveOffset: 1 },
+            "'": { note: 'F', isBlack: false, octaveOffset: 1 },
+            // Octave 2 - Black keys: Use backslash and other available keys
+            '\\': { note: 'C#', isBlack: true, octaveOffset: 0 },
+            // Note: W, E, T, Y, U are already used for octave 1, so we'll handle octave 2 black keys via mouse/touch
+            // For keyboard, users can use number row with shift or we'll map some keys
+            // Octave 3 (highest) - White keys: Z X C V B N M , . /
+            'z': { note: 'C', isBlack: false, octaveOffset: 1 },
+            'x': { note: 'D', isBlack: false, octaveOffset: 1 },
+            'c': { note: 'E', isBlack: false, octaveOffset: 1 },
+            'v': { note: 'F', isBlack: false, octaveOffset: 1 },
+            'b': { note: 'G', isBlack: false, octaveOffset: 1 },
+            'n': { note: 'A', isBlack: false, octaveOffset: 1 },
+            'm': { note: 'B', isBlack: false, octaveOffset: 1 },
+            ',': { note: 'C', isBlack: false, octaveOffset: 2 },
+            '.': { note: 'D', isBlack: false, octaveOffset: 2 },
+            '/': { note: 'E', isBlack: false, octaveOffset: 2 }
+            // Note: Black keys for octave 2 and 3 can be played via mouse/touch on the visual keyboard
         };
     }
 
-    // Initialize keyboard UI
+    // Initialize keyboard UI - 3 octaves
     initKeyboard() {
         const keyboard = document.getElementById('keyboard');
         keyboard.innerHTML = '';
 
-        // Define the keyboard layout in order
-        const keyLayout = [
+        // Define one octave layout
+        const oneOctaveLayout = [
             { note: 'C', isBlack: false },
             { note: 'C#', isBlack: true },
             { note: 'D', isBlack: false },
@@ -215,36 +248,57 @@ class KeyboardManager {
 
         const whiteKeyWidth = 60;
         const blackKeyWidth = 40;
-        let whiteKeyIndex = 0;
+        const numOctaves = 3;
+        let globalWhiteKeyIndex = 0;
 
-        // Create all keys in order
-        keyLayout.forEach((keyInfo) => {
-            const key = document.createElement('div');
-            key.className = `key ${keyInfo.isBlack ? 'black' : 'white'}`;
-            key.dataset.note = keyInfo.note;
-            key.dataset.isBlack = keyInfo.isBlack.toString();
-            
-            // Add label with keyboard shortcut
-            const label = document.createElement('div');
-            label.className = 'key-label';
-            const keyChar = Object.keys(this.keyMapping).find(
-                k => this.keyMapping[k].note === keyInfo.note && 
-                     this.keyMapping[k].isBlack === keyInfo.isBlack
-            );
-            label.textContent = keyChar ? keyChar.toUpperCase() : '';
-            key.appendChild(label);
+        // Create 3 octaves
+        for (let octave = 0; octave < numOctaves; octave++) {
+            oneOctaveLayout.forEach((keyInfo) => {
+                const key = document.createElement('div');
+                key.className = `key ${keyInfo.isBlack ? 'black' : 'white'}`;
+                key.dataset.note = keyInfo.note;
+                key.dataset.isBlack = keyInfo.isBlack.toString();
+                key.dataset.octave = octave.toString();
+                
+                // Add label with keyboard shortcut (only show for first occurrence or specific keys)
+                const label = document.createElement('div');
+                label.className = 'key-label';
+                
+                // Find key mapping for this note and octave
+                // octave 0 (first displayed) = -1 offset, octave 1 (middle) = 0 offset, octave 2 (third) = 1 offset
+                const noteOctave = octave - 1;
+                const keyChar = Object.keys(this.keyMapping).find(
+                    k => {
+                        const mapping = this.keyMapping[k];
+                        return mapping.note === keyInfo.note && 
+                               mapping.isBlack === keyInfo.isBlack &&
+                               mapping.octaveOffset === noteOctave;
+                    }
+                );
+                
+                // Show key label if found, otherwise show octave indicator for first occurrence
+                if (keyChar) {
+                    label.textContent = keyChar.toUpperCase();
+                } else if (!keyInfo.isBlack && (octave === 0 || (octave === 1 && keyInfo.note === 'C'))) {
+                    // Show octave indicator on first C of each octave for reference
+                    label.textContent = '';
+                } else {
+                    label.textContent = '';
+                }
+                key.appendChild(label);
 
-            // Position black keys absolutely
-            if (keyInfo.isBlack) {
-                // Position black key between the previous and next white key
-                const leftPosition = (whiteKeyIndex * whiteKeyWidth) + (whiteKeyWidth / 2) - (blackKeyWidth / 2);
-                key.style.left = `${leftPosition}px`;
-            } else {
-                whiteKeyIndex++;
-            }
+                // Position black keys absolutely
+                if (keyInfo.isBlack) {
+                    // Position black key between the previous and next white key
+                    const leftPosition = (globalWhiteKeyIndex * whiteKeyWidth) + (whiteKeyWidth / 2) - (blackKeyWidth / 2);
+                    key.style.left = `${leftPosition}px`;
+                } else {
+                    globalWhiteKeyIndex++;
+                }
 
-            keyboard.appendChild(key);
-        });
+                keyboard.appendChild(key);
+            });
+        }
     }
 
     // Initialize event listeners
@@ -253,12 +307,15 @@ class KeyboardManager {
         document.getElementById('keyboard').addEventListener('mousedown', (e) => {
             const key = e.target.closest('.key');
             if (key) {
-                this.handleKeyPress(key.dataset.note, key.dataset.isBlack === 'true');
+                const octave = parseInt(key.dataset.octave) + this.audioEngine.octave - 1;
+                const noteId = `${key.dataset.note}-${octave}`;
+                this.activeMouseKeys.set(key, noteId);
+                this.handleKeyPress(key.dataset.note, key.dataset.isBlack === 'true', null, octave, key);
             }
         });
 
         document.addEventListener('mouseup', () => {
-            this.handleKeyRelease();
+            this.handleMouseKeyRelease();
         });
 
         // Touch events
@@ -266,13 +323,16 @@ class KeyboardManager {
             e.preventDefault();
             const key = e.target.closest('.key');
             if (key) {
-                this.handleKeyPress(key.dataset.note, key.dataset.isBlack === 'true');
+                const octave = parseInt(key.dataset.octave) + this.audioEngine.octave - 1;
+                const noteId = `${key.dataset.note}-${octave}`;
+                this.activeMouseKeys.set(key, noteId);
+                this.handleKeyPress(key.dataset.note, key.dataset.isBlack === 'true', null, octave, key);
             }
         });
 
         document.addEventListener('touchend', (e) => {
             e.preventDefault();
-            this.handleKeyRelease();
+            this.handleMouseKeyRelease();
         });
 
         // Computer keyboard events
@@ -281,7 +341,8 @@ class KeyboardManager {
             if (this.keyMapping[key] && !this.activeKeys.has(key)) {
                 e.preventDefault();
                 const mapping = this.keyMapping[key];
-                this.handleKeyPress(mapping.note, mapping.isBlack, key);
+                const octave = this.audioEngine.octave + (mapping.octaveOffset || 0);
+                this.handleKeyPress(mapping.note, mapping.isBlack, key, octave);
             }
         });
 
@@ -295,23 +356,29 @@ class KeyboardManager {
     }
 
     // Handle key press
-    handleKeyPress(note, isBlack, keyChar = null) {
-        const octave = this.audioEngine.octave;
-        const noteId = `${note}-${octave}`;
+    handleKeyPress(note, isBlack, keyChar = null, octave = null, keyElement = null) {
+        if (octave === null) {
+            octave = this.audioEngine.octave;
+        }
+        const noteId = keyChar ? keyChar : `${note}-${octave}`;
         
         if (this.activeKeys.has(noteId)) return;
 
         this.activeKeys.add(noteId);
         this.audioEngine.playNote(note, octave);
         
-        // Visual feedback
-        const keys = document.querySelectorAll(`.key[data-note="${note}"]`);
-        keys.forEach(key => {
-            if ((isBlack && key.classList.contains('black')) ||
-                (!isBlack && key.classList.contains('white'))) {
-                key.classList.add('active');
-            }
-        });
+        // Visual feedback - target specific key if provided, otherwise all matching keys
+        if (keyElement) {
+            keyElement.classList.add('active');
+        } else {
+            const keys = document.querySelectorAll(`.key[data-note="${note}"][data-octave="${octave - this.audioEngine.octave + 1}"]`);
+            keys.forEach(key => {
+                if ((isBlack && key.classList.contains('black')) ||
+                    (!isBlack && key.classList.contains('white'))) {
+                    key.classList.add('active');
+                }
+            });
+        }
     }
 
     // Handle key release
@@ -320,35 +387,38 @@ class KeyboardManager {
             // Release specific key
             const mapping = this.keyMapping[keyChar];
             if (mapping) {
-                const noteId = `${mapping.note}-${this.audioEngine.octave}`;
+                const octave = this.audioEngine.octave + (mapping.octaveOffset || 0);
+                const noteId = keyChar;
                 if (this.activeKeys.has(noteId)) {
                     this.activeKeys.delete(noteId);
-                    this.audioEngine.stopNote(mapping.note, this.audioEngine.octave);
+                    this.audioEngine.stopNote(mapping.note, octave);
                     
                     // Remove visual feedback
                     const keys = document.querySelectorAll(`.key[data-note="${mapping.note}"]`);
                     keys.forEach(key => {
-                        if ((mapping.isBlack && key.classList.contains('black')) ||
-                            (!mapping.isBlack && key.classList.contains('white'))) {
+                        const keyOctave = parseInt(key.dataset.octave) + this.audioEngine.octave - 1;
+                        if (keyOctave === octave && 
+                            ((mapping.isBlack && key.classList.contains('black')) ||
+                             (!mapping.isBlack && key.classList.contains('white')))) {
                             key.classList.remove('active');
                         }
                     });
                 }
             }
-        } else {
-            // Release all keys (mouse/touch)
-            this.activeKeys.forEach(noteId => {
-                const [note, octave] = noteId.split('-');
-                this.audioEngine.stopNote(note, parseInt(octave));
-                
-                // Remove visual feedback
-                const keys = document.querySelectorAll(`.key[data-note="${note}"]`);
-                keys.forEach(key => {
-                    key.classList.remove('active');
-                });
-            });
-            this.activeKeys.clear();
         }
+    }
+
+    // Handle mouse/touch key release
+    handleMouseKeyRelease() {
+        this.activeMouseKeys.forEach((noteId, keyElement) => {
+            if (this.activeKeys.has(noteId)) {
+                const [note, octave] = noteId.split('-');
+                this.activeKeys.delete(noteId);
+                this.audioEngine.stopNote(note, parseInt(octave));
+                keyElement.classList.remove('active');
+            }
+        });
+        this.activeMouseKeys.clear();
     }
 }
 

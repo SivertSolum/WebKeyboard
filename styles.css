@@ -100,7 +100,9 @@ header h1 {
     justify-content: center;
     margin-bottom: 20px;
     overflow-x: auto;
+    overflow-y: visible;
     padding: 10px;
+    -webkit-overflow-scrolling: touch;
 }
 
 .keyboard {
